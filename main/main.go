@@ -43,5 +43,5 @@ func main() {
 	r.PUT("/stories/:id", sc.Put)
 	// Fire up the server
 	log.Println("Server is starting on port 1982.")
-	http.ListenAndServe("localhost:1982", r)
+	http.ListenAndServe("52.42.25.124:1982", r)
 }
