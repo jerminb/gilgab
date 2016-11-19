@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -17,24 +18,16 @@ type MongoRepository interface {
 	FindByID(ID string) (interface{}, error)
 	//FindByFilter(filter string) ([]interface{}, error)
 	Insert(entity interface{}) (string, error)
+	Update(id string, entity interface{}) error
 }
 
-//UserMongoRepository is the MongoRepository realization for User objects
-type UserMongoRepository struct {
+//BaseMongoRepository is the collection of all the mongo repository functions with commonalities lumped in
+type BaseMongoRepository struct {
 	session *mgo.Session
 }
 
 //FindByID return is a User using its ID
-func (umr *UserMongoRepository) FindByID(ID string) (interface{}, error) {
-	/*return models.User{
-		FirstName: "Bob",
-		LastName:  "Smith",
-		Gender:    "male",
-		Age:       50,
-		ID:        ID,
-	}, nil*/
-	// Grab id
-
+func (bmr *BaseMongoRepository) FindByID(ID string, model models.GilGabModel, collection string) (interface{}, error) {
 	// Verify id is ObjectId, otherwise bail
 	if !bson.IsObjectIdHex(ID) {
 		return nil, errMalformedID
@@ -42,27 +35,49 @@ func (umr *UserMongoRepository) FindByID(ID string) (interface{}, error) {
 
 	// Grab id
 	oid := bson.ObjectIdHex(ID)
-
-	// Stub user
-	u := models.User{}
-	if err := umr.session.DB(config.DBName).C("users").FindId(oid).One(&u); err != nil {
+	if err := bmr.session.DB(config.DBName).C(collection).FindId(oid).One(model); err != nil {
 		return nil, err
 	}
 
-	return u, nil
+	return model, nil
 }
 
 //Insert adds a user to the database
-func (umr *UserMongoRepository) Insert(entity interface{}) (string, error) {
-	u := entity.(models.User)
+func (bmr *BaseMongoRepository) Insert(entity models.GilGabModel, collection string) (string, error) {
 	// Add an Id
-	u.ID = bson.NewObjectId()
-	u.CreatedAt = time.Now()
-	err := umr.session.DB(config.DBName).C("users").Insert(u)
+	entity.SetID(bson.NewObjectId())
+	entity.SetCreatedAt(time.Now())
+	err := bmr.session.DB(config.DBName).C(collection).Insert(entity)
 	if err != nil {
 		return "", err
 	}
-	return u.ID.String(), nil
+	return entity.GetID().Hex(), nil
+}
+
+//Update updates an object
+func (bmr *BaseMongoRepository) Update(ID string, entity models.GilGabModel, collection string) error {
+	if !bson.IsObjectIdHex(entity.GetID().String()) {
+		// Verify id is ObjectId, otherwise bail
+		if !bson.IsObjectIdHex(ID) {
+			return errMalformedID
+		}
+		entity.SetID(bson.ObjectIdHex(ID))
+	}
+	je, err := json.Marshal(entity)
+	if err != nil {
+		return err
+	}
+	me := make(map[string]interface{})
+	err = json.Unmarshal(je, &me)
+	if err != nil {
+		return err
+	}
+	change := bson.M{"$set": bson.M(me)}
+	err = bmr.session.DB(config.DBName).C(collection).UpdateId(entity.GetID(), change)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 //NewRepositoryForType is the factory class for MongoRepository Realization classes
@@ -76,8 +91,13 @@ func NewRepositoryForType(repoType string) MongoRepository {
 	switch repoType {
 	case config.RepositoryTypeUser:
 		return &UserMongoRepository{
-			session: s,
+			bmr: &BaseMongoRepository{s},
+		}
+	case config.RepositoryTypeStory:
+		return &StoryMongoRepository{
+			bmr: &BaseMongoRepository{s},
 		}
 	}
+
 	return nil
 }

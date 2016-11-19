@@ -22,12 +22,20 @@ const (
 	HTTPCode500 int = 500
 	//HTPPCode201 is resource created http code
 	HTPPCode201 int = 201
+	//HTPPCode204 is resource updated http code
+	HTPPCode204 int = 204
 
 	//ControllerTypeUser defines a controller type for User objects
 	ControllerTypeUser string = "user"
+	//ControllerTypeStory defines a controller type for Story objects
+	ControllerTypeStory string = "story"
 
 	//RepositoryTypeUser defines a repository type for User objects
 	RepositoryTypeUser string = "user"
+	//RepositoryTypeStory defines a repository type for story objects
+	RepositoryTypeStory string = "story"
+	//RepositoryTypeStoryPart defines a repository type for StoryType objects
+	RepositoryTypeStoryPart string = "story_part"
 
 	//DBName is the Database name in mongodb
 	DBName string = "gilgab"
